@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Finance Jargon</title>
+  <style>
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    input, textarea, button, select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .controls > * {
+      width: 100%;
+      margin-bottom: 0;
+    }
+
+    .entry {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .word {
+      font-weight: bold;
+    }
+
+    .meta {
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 4px;
+    }
+    .entry-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .delete-btn{
+      width:auto;
+      padding:6px 10px;
+      font-size:12px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h2>Finance Dictionary</h2>
+
+  <input id="wordInput" type="text" placeholder="Word"/>
+  <textarea id="definitionInput" placeholder="Definition"></textarea>
+  <button id="addBtn">Add to Dictionary</button>
+
+  <h3>Search</h3>
+  <input id="searchInput" type="text" placeholder="Search word or definition..."/>
+
+  <div class="controls">
+    <select id="sortSelect">
+      <option value="alpha">Sort: A → Z</option>
+      <option value="searched">Sort: Most searched</option>
+    </select>
+    <button id="clearSearchBtn">Clear</button>
+  </div>
+
+  <h3>Entries</h3>
+  <div id="dictionaryDisplay"></div>
+
+  <h3>Save / Load</h3>
+  <div class="controls">
+    <button id="exportBtn">Export JSON</button>
+    <button id="importBtn">Import JSON</button>
+  </div>
+  
+  <input id="importFile" type="file" accept="application/json" style="display:none;">
+    <p style="font-size:12px; opacity:0.75; margin-top:-6px;">
+       Auto-saves locally in your browser. Export JSON to sync via GitHub.
+    </p>
+
+  
+  <script>
+    const STORAGE_KEY = "finance_dictionary_v1";
+
+    // dictionary = { "Word": { definition: "...", searched: 0 } }
+    let dictionary = {};
+
+    const wordInput = document.getElementById("wordInput");
+    const definitionInput = document.getElementById("definitionInput");
+    const addBtn = document.getElementById("addBtn");
+
+    const searchInput = document.getElementById("searchInput");
+    const sortSelect = document.getElementById("sortSelect");
+    const clearSearchBtn = document.getElementById("clearSearchBtn");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const importFile = document.getElementById("importFile");
+
+    const display = document.getElementById("dictionaryDisplay");
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, ch => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+      }[ch]));
+    }
+
+    // ---------- Persistence ----------
+    function saveToLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dictionary));
+    }
+
+    function loadFromLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") dictionary = parsed;
+      } catch (e) {
+        console.warn("Failed to load saved dictionary:", e);
+      }
+    }
+
+    // ---------- Core actions ----------
+    function addEntry() {
+      const word = wordInput.value.trim();
+      const definition = definitionInput.value.trim();
+      if (!word || !definition) return;
+
+      const prevSearched = dictionary[word]?.searched ?? 0;
+      dictionary[word] = { definition, searched: prevSearched };
+
+      wordInput.value = "";
+      definitionInput.value = "";
+
+      saveToLocal();
+      renderDictionary();
+    }
+
+    function getSortedEntries(entries) {
+      const mode = sortSelect.value;
+
+      if (mode === "searched") {
+        return entries.sort((a, b) => {
+          const diff = (b[1].searched ?? 0) - (a[1].searched ?? 0);
+          if (diff !== 0) return diff;
+          return a[0].localeCompare(b[0]);
+        });
+      }
+
+      return entries.sort((a, b) => a[0].localeCompare(b[0]));
+    }
+
+    // Live search (increments count for matches per keystroke)
+    // If you want counts to increase only on Enter or a Search button, tell me.
+    function searchEntries() {
+      const q = searchInput.value.trim().toLowerCase();
+
+      if (!q) {
+        renderDictionary();
+        return;
+      }
+
+      const matches = Object.entries(dictionary).filter(([w, obj]) => {
+        const def = obj?.definition ?? "";
+        return w.toLowerCase().includes(q) || def.toLowerCase().includes(q);
+      });
+
+      // Increment searched count for matched entries
+      for (const [w] of matches) {
+        dictionary[w].searched = (dictionary[w].searched ?? 0) + 1;
+      }
+
+      saveToLocal();
+      renderDictionary(matches);
+    }
+
+    function deleteEntry(word) {
+      if (!confirm(`Delete "${word}"?`)) return;
+      delete dictionary[word];
+      saveToLocal();
+
+      // Keep current filter if user is searching
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        renderDictionary();
+        return;
+      }
+
+      const matches = Object.entries(dictionary).filter(([w, obj]) => {
+        const def = obj?.definition ?? "";
+        return w.toLowerCase().includes(q) || def.toLowerCase().includes(q);
+      });
+
+      renderDictionary(matches);
+      }
+
+
+    function renderDictionary(filteredEntries = null) {
+      display.innerHTML = "";
+
+      let entries = filteredEntries ?? Object.entries(dictionary);
+
+      if (entries.length === 0) {
+        display.textContent = "No entries to show.";
+        return;
+      }
+
+      entries = getSortedEntries(entries);
+
+      for (const [word, obj] of entries) {
+        const def = obj?.definition ?? "";
+        const count = obj?.searched ?? 0;
+
+        const div = document.createElement("div");
+        div.className = "entry";
+        div.innerHTML = `
+          <div><span class="word">${escapeHtml(word)}:</span> ${escapeHtml(def)}</div>
+          <div class="meta">Times matched in search: ${count}</div>
+        `;
+        display.appendChild(div);
+      }
+    }
+
+    function clearSearch() {
+      searchInput.value = "";
+      renderDictionary();
+    }
+
+    // ---------- Export / Import ----------
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(dictionary, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "finance_dictionary.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    }
+
+    function importJSONFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+
+          // Basic validation
+          if (!parsed || typeof parsed !== "object") throw new Error("Invalid JSON structure.");
+
+          dictionary = parsed;
+          saveToLocal();
+          clearSearch();
+          renderDictionary();
+        } catch (e) {
+          alert("Import failed: " + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ---------- Event wiring ----------
+    addBtn.addEventListener("click", addEntry);
+
+    definitionInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        addEntry();
+      }
+    });
+
+    searchInput.addEventListener("input", searchEntries);
+
+    sortSelect.addEventListener("change", () => {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) return renderDictionary();
+
+      // Recompute matches without incrementing counts
+      const matches = Object.entries(dictionary).filter(([w, obj]) => {
+        const def = obj?.definition ?? "";
+        return w.toLowerCase().includes(q) || def.toLowerCase().includes(q);
+      });
+      renderDictionary(matches);
+    });
+
+    clearSearchBtn.addEventListener("click", clearSearch);
+
+    exportBtn.addEventListener("click", exportJSON);
+
+    importBtn.addEventListener("click", () => importFile.click());
+
+    importFile.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (file) importJSONFile(file);
+      importFile.value = ""; // allow importing same file again
+    });
+
+    // ---------- Init ----------
+    loadFromLocal();
+    renderDictionary();
+  </script>
+
+</body>
+</html>
