@@ -185,6 +185,46 @@
     padding: 8px 12px;
     }
 
+    /* Location autocomplete */
+    .loc-autocomplete{
+    position: relative;
+    }
+
+    .loc-dropdown{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 6px);
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 8px;
+    max-height: 180px;
+    overflow: auto;
+    z-index: 2000;
+    padding: 6px 0;
+    box-sizing: border-box;
+    }
+
+    .loc-option{
+    padding: 8px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    }
+
+    .loc-option:hover,
+    .loc-option.active{
+    background: #f1f1f1;
+    }
+
+    .loc-empty{
+    padding: 8px 10px;
+    opacity: 0.7;
+    cursor: default;
+    }
+
+
   </style>
 </head>
 <body>
@@ -201,7 +241,11 @@
       <textarea id="definitionInput" placeholder="Definition"></textarea>
 
       <label for="locationInput">Link to webpage or keywords for location</label>
-      <input id="locationInput" type="text" placeholder="Link to webpage or keywords for location" autocomplete="off" />
+      <div class="loc-autocomplete">
+            <input id="locationInput" type="text" placeholder="Link to webpage or keywords for location" autocomplete="off" />
+            <div id="locationDropdown" class="loc-dropdown" style="display:none;"></div>
+      </div>
+
 
       <button id="addBtn">Add to dictionary</button>
     </div>
@@ -240,6 +284,7 @@
     const wordInput = document.getElementById("wordInput");
     const definitionInput = document.getElementById("definitionInput");
     const locationInput = document.getElementById("locationInput");
+    const locationDropdown = document.getElementById("locationDropdown");
     const addBtn = document.getElementById("addBtn");
 
     const searchInput = document.getElementById("searchInput");
@@ -249,6 +294,81 @@
     const importFile = document.getElementById("importFile");
 
     const entriesEl = document.getElementById("entries");
+
+    // ---------------- Location Autocomplete (GLOBAL) ----------------
+let locActiveIndex = -1;
+let locMatches = [];
+
+function getAllLocations() {
+  const set = new Set();
+  for (const obj of Object.values(dictionary)) {
+    const loc = (obj?.location ?? "").trim();
+    if (loc) set.add(loc);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function closeLocationDropdown() {
+  locationDropdown.style.display = "none";
+  locationDropdown.innerHTML = "";
+  locActiveIndex = -1;
+  locMatches = [];
+}
+
+function openLocationDropdown(matches) {
+  locMatches = matches;
+  locActiveIndex = -1;
+
+  locationDropdown.innerHTML = "";
+
+  if (matches.length === 0) {
+    const div = document.createElement("div");
+    div.className = "loc-empty";
+    div.textContent = "No matching saved locations. Press Enter to create this location.";
+    locationDropdown.appendChild(div);
+  } else {
+    matches.slice(0, 12).forEach((loc) => {
+      const opt = document.createElement("div");
+      opt.className = "loc-option";
+      opt.textContent = loc;
+
+      opt.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        locationInput.value = loc;
+        closeLocationDropdown();
+        locationInput.focus();
+      });
+
+      locationDropdown.appendChild(opt);
+    });
+  }
+
+  locationDropdown.style.display = "block";
+}
+
+function refreshLocationDropdown() {
+  const q = locationInput.value.trim().toLowerCase();
+  const all = getAllLocations();
+
+  if (!q) {
+    openLocationDropdown(all.slice(0, 12));
+    return;
+  }
+
+  const matches = all.filter(loc => loc.toLowerCase().includes(q));
+  openLocationDropdown(matches);
+}
+
+function setActiveOption(index) {
+  const options = locationDropdown.querySelectorAll(".loc-option");
+  options.forEach(o => o.classList.remove("active"));
+  if (index >= 0 && index < options.length) {
+    options[index].classList.add("active");
+    options[index].scrollIntoView({ block: "nearest" });
+  }
+}
+// ---------------------------------------------------------------
+
 
     function escapeHtml(str) {
       return String(str).replace(/[&<>"']/g, ch => ({
@@ -296,26 +416,26 @@
     }
 
     function editEntry(word) {
-    const current = dictionary[word];
-    if (!current) return;
+        const current = dictionary[word];
+        if (!current) return;
 
-    // Elements (assumes you added the modal HTML)
-    const overlay = document.getElementById("editOverlay");
-    const modal = document.getElementById("editModal");
+        // Elements (assumes you added the modal HTML)
+        const overlay = document.getElementById("editOverlay");
+        const modal = document.getElementById("editModal");
 
-    const editWord = document.getElementById("editWord");
-    const editDefinition = document.getElementById("editDefinition");
-    const editLocation = document.getElementById("editLocation");
+        const editWord = document.getElementById("editWord");
+        const editDefinition = document.getElementById("editDefinition");
+        const editLocation = document.getElementById("editLocation");
 
-    const saveBtn = document.getElementById("editSaveBtn");
-    const cancelBtn = document.getElementById("editCancelBtn");
+        const saveBtn = document.getElementById("editSaveBtn");
+        const cancelBtn = document.getElementById("editCancelBtn");
 
     // Snapshot original values
-    const original = {
-        word,
-        definition: current.definition ?? "",
-        location: current.location ?? ""
-    };
+        const original = {
+            word,
+            definition: current.definition ?? "",
+            location: current.location ?? ""
+        };
 
     // Fill fields
     editWord.value = original.word;
@@ -380,6 +500,8 @@
         // Apply changes
         if (newWord !== original.word) delete dictionary[original.word];
         dictionary[newWord] = { definition: newDef, location: newLoc };
+        
+
 
         saveToLocal();
         render();
@@ -530,8 +652,49 @@
       if (e.key === "Enter") addEntry();
     });
     locationInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") addEntry();
-    });
+        if (e.key === "ArrowDown") {
+            if (locationDropdown.style.display !== "block") refreshLocationDropdown();
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (opts.length === 0) return;
+            e.preventDefault();
+            locActiveIndex = Math.min(locActiveIndex + 1, opts.length - 1);
+            setActiveOption(locActiveIndex);
+            return;
+        }
+
+        if (e.key === "ArrowUp") {
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (opts.length === 0) return;
+            e.preventDefault();
+            locActiveIndex = Math.max(locActiveIndex - 1, 0);
+            setActiveOption(locActiveIndex);
+            return;
+        }
+
+        if (e.key === "Enter") {
+            // If a dropdown option is active, choose it.
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (locationDropdown.style.display === "block" && opts.length > 0 && locActiveIndex >= 0) {
+            e.preventDefault();
+            locationInput.value = locMatches[locActiveIndex];
+            closeLocationDropdown();
+            addEntry(); // still adds entry on Enter
+            return;
+            }
+
+            // Otherwise, Enter creates this new location implicitly by saving it on the entry
+            // and adds the entry.
+            e.preventDefault();
+            closeLocationDropdown();
+            addEntry();
+            return;
+        }
+
+        if (e.key === "Escape") {
+            closeLocationDropdown();
+        }
+        });
+
     definitionInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -548,6 +711,28 @@
       if (file) importJSONFile(file);
       importFile.value = "";
     });
+
+    locationInput.addEventListener("input", () => {
+        const q = locationInput.value.trim();
+        if (q.length === 0) {
+            closeLocationDropdown();   // don’t show anything if empty
+            return;
+        }
+        refreshLocationDropdown();   // show matches once user types
+        });
+
+    locationInput.addEventListener("focus", () => {
+    // Do nothing on focus — dropdown should not appear just by clicking in.
+    // (You can still type and the input handler will show it.)
+    });
+
+
+    // Close when clicking elsewhere
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".loc-autocomplete")) closeLocationDropdown();
+    });
+
+
 
     // Init
     loadFromLocal();
