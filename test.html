@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!--<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -54,12 +54,28 @@
       align-items:flex-start;
       gap:10px;
     }
+    
+    .entry {
+    position: relative;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #ddd;
+  }
 
-    .delete-btn{
-      width:auto;
-      padding:6px 10px;
-      font-size:12px;
-    }
+  .delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: none;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .entry:hover .delete-btn {
+    display: block;
+  }
+
 
   </style>
 </head>
@@ -82,9 +98,6 @@
     <button id="clearSearchBtn">Clear</button>
   </div>
 
-  <h3>Entries</h3>
-  <div id="dictionaryDisplay"></div>
-
   <h3>Save / Load</h3>
   <div class="controls">
     <button id="exportBtn">Export JSON</button>
@@ -96,6 +109,9 @@
        Auto-saves locally in your browser. Export JSON to sync via GitHub.
     </p>
 
+  
+  <h3>Entries</h3>
+  <div id="dictionaryDisplay"></div>
   
   <script>
     const STORAGE_KEY = "finance_dictionary_v1";
@@ -322,4 +338,4 @@
   </script>
 
 </body>
-</html>
+</html> -->
