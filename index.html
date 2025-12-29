@@ -533,18 +533,35 @@ function setActiveOption(index) {
 
 
     function exportJSON() {
-      const blob = new Blob([JSON.stringify(dictionary, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+        // Export what is currently on screen = current filtered entries
+        const entries = getFilteredEntries(); // returns [ [word, obj], ... ]
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "finance_dictionary.json";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+        const exportObj = {};
+        for (const [word, obj] of entries) {
+            exportObj[word] = {
+            definition: String(obj?.definition ?? ""),
+            location: String(obj?.location ?? "")
+            };
+        }
 
-      URL.revokeObjectURL(url);
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        // Name file differently if there is an active search query
+        const q = searchInput.value.trim();
+        const safeQ = q ? q.replace(/[^\w\-]+/g, "_").slice(0, 40) : "";
+        const filename = q ? `finance_dictionary_filtered_${safeQ}.json` : "finance_dictionary_all_visible.json";
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
     }
+
 
     function importJSONFile(file) {
       const reader = new FileReader();
