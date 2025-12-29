@@ -1,0 +1,22 @@
+{
+  "Options": {
+    "definition": "A term used when it comes to understanding the different variety of stocks in the market.",
+    "location": "General"
+  },
+  "Stock": {
+    "definition": "Shares of debt issued by a company when it goes live on the market (also known as IPO: Initial Public Offering)",
+    "location": "General"
+  },
+  "Dividend": {
+    "definition": "A sum of money paid regularly by shareholders of a company.",
+    "location": "General"
+  },
+  "Initial Public Offering (IPO)": {
+    "definition": "When a private company sells shares of its stock to the general public for the first time, essentially \"going public\" to raise money, pay off debts, or fund growth, becoming a private entity to a public entity whose ownership is traded on a stock exchange.",
+    "location": "General"
+  },
+  "Flotation": {
+    "definition": "Process for a company going private to public.",
+    "location": "General"
+  }
+}
