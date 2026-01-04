@@ -18,5 +18,13 @@
   "Flotation": {
     "definition": "Process for a company going private to public.",
     "location": "General"
+  },
+  "Market Designers": {
+    "definition": "People in power who take a macro approach to aligning market reactions and results to their desired outcomes, i.e. to solve allocation problems within a market.",
+    "location": "Market Design paper by Georg Rilinger"
+  },
+  "Modularization": {
+    "definition": "Breaking down complex systems into smaller, independent, changeable units.",
+    "location": "Market Design paper by Georg Rilinger"
   }
 }

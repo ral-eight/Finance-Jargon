@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Finance Dictionary</title>
+  <style>
+    :root { --maxw: 900px; }
+
+    body{
+      font-family: "Times New Roman", Times, serif;
+      margin: 0;
+      padding: 24px 16px;
+    }
+
+    .wrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
+    }
+
+    h1, h2{
+      margin: 0 0 12px 0;
+      font-weight: 700;
+    }
+
+    .section{
+      margin: 18px 0 26px 0;
+      padding: 14px 14px 8px 14px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }
+
+    label{
+      display:block;
+      margin: 10px 0 6px 0;
+      font-size: 14px;
+    }
+
+    input, textarea, button{
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+    }
+
+    textarea{ min-height: 80px; resize: vertical; }
+
+    button{
+      cursor: pointer;
+      background: #f7f7f7;
+    }
+
+    .row{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row > *{
+      flex: 1 1 220px;
+    }
+
+    /* Entries */
+    #entries{
+      margin-top: 12px;
+    }
+
+    /* Entries */
+    .entry{
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 420px; /* left: word/def, right: location + buttons */
+    gap: 14px;
+    align-items: start;
+    padding: 12px 12px;
+    border-bottom: 1px solid #ddd;
+    }
+
+    .entry:last-child{ border-bottom: none; }
+
+    .right{
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 8px;
+    }
+
+    .loc{
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.9;
+    font-size: 13px;
+    line-height: 1.35;
+    word-break: break-word;
+    }
+
+    .loc .label{
+    opacity: 0.75;
+    font-style: italic;
+    margin-right: 6px;
+    }
+
+    /* Buttons: only show on hover, and they are NEXT TO the location (not on top of it) */
+    .icon-btn{
+    width: auto;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    border: 1px solid #bbb;
+    background: #f7f7f7;
+    white-space: nowrap;
+    display: none;
+    }
+
+    .entry:hover .icon-btn{
+    display: inline-block;
+    }
+
+    /* On small screens, always show buttons so it's usable */
+    @media (max-width: 740px){
+    .entry{ grid-template-columns: 1fr; }
+    .loc{ text-align: left; }
+    .right{ justify-content: flex-start; }
+    .icon-btn{ display: inline-block; }
+    }
+
+
+    mark{
+      font-weight: 700;
+      background: transparent;
+      padding: 0;
+    }
+
+    .note{
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: -4px;
+    }
+
+    /* Modal overlay + dialog */
+    #editOverlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 9999;
+    }
+
+    #editModal{
+    width: 100%;
+    max-width: 700px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 16px;
+    box-sizing: border-box;
+    }
+
+    #editModal input, #editModal textarea, #editModal button{
+    font-family: inherit;
+    }
+
+    #editModal textarea{
+    min-height: 120px;
+    resize: vertical;
+    }
+
+    .modal-actions{
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+    }
+
+    .modal-actions button{
+    width: auto;
+    margin: 0;
+    padding: 8px 12px;
+    }
+
+    /* Location autocomplete */
+    .loc-autocomplete{
+    position: relative;
+    }
+
+    .loc-dropdown{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 6px);
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 8px;
+    max-height: 180px;
+    overflow: auto;
+    z-index: 2000;
+    padding: 6px 0;
+    box-sizing: border-box;
+    }
+
+    .loc-option{
+    padding: 8px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    }
+
+    .loc-option:hover,
+    .loc-option.active{
+    background: #f1f1f1;
+    }
+
+    .loc-empty{
+    padding: 8px 10px;
+    opacity: 0.7;
+    cursor: default;
+    }
+
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <h1>Finance Dictionary</h1>
+
+    <!-- Add section -->
+    <div class="section" aria-label="Add to dictionary section">
+      <label for="wordInput">Word</label>
+      <input id="wordInput" type="text" placeholder="Word" autocomplete="off" />
+
+      <label for="definitionInput">Definition</label>
+      <textarea id="definitionInput" placeholder="Definition"></textarea>
+
+      <label for="locationInput">Link to webpage or keywords for location</label>
+      <div class="loc-autocomplete">
+            <input id="locationInput" type="text" placeholder="Link to webpage or keywords for location" autocomplete="off" />
+            <div id="locationDropdown" class="loc-dropdown" style="display:none;"></div>
+      </div>
+
+
+      <button id="addBtn">Add to dictionary</button>
+    </div>
+
+    <!-- Search section -->
+    <div class="section" aria-label="Search section">
+        <h2>Search</h2>
+
+        <label for="searchInput">Search word or definition</label>
+        <input id="searchInput" type="text" placeholder="Search word or definition" autocomplete="off" />
+
+        <label for="locationFilter">Select Location</label>
+        <select id="locationFilter">
+            <option value="">Select Location</option>
+        </select>
+
+        <div class="row">
+            <button id="searchBtn" type="button">Search</button>
+            <button id="clearFiltersBtn" type="button">Clear</button>
+        </div>
+
+        <div class="note">Use a location filter alone, or combine it with a search query.</div>
+</div>
+
+
+    <!-- Export / Import -->
+    <div class="section" aria-label="Export import section">
+      <div class="row">
+        <button id="exportBtn">Export to JSON</button>
+        <button id="importBtn">Import JSON</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json" style="display:none;" />
+      <div class="note">Entries auto-save locally in your browser. Export to commit to GitHub.</div>
+    </div>
+
+    <!-- Entries -->
+    <div class="section" aria-label="Entries section">
+      <h2>Entries</h2>
+      <div id="entries"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_KEY = "finance_dictionary_v3";
+
+    // dictionary = { "Word": { definition: "...", location: "..." } }
+    let dictionary = {};
+
+    const wordInput = document.getElementById("wordInput");
+    const locationFilter = document.getElementById("locationFilter");
+    const searchBtn = document.getElementById("searchBtn");
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+    const definitionInput = document.getElementById("definitionInput");
+    const locationInput = document.getElementById("locationInput");
+    const locationDropdown = document.getElementById("locationDropdown");
+    const addBtn = document.getElementById("addBtn");
+
+    const searchInput = document.getElementById("searchInput");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const importFile = document.getElementById("importFile");
+
+    const entriesEl = document.getElementById("entries");
+
+    // ---------------- Location Autocomplete (GLOBAL) ----------------
+let locActiveIndex = -1;
+let locMatches = [];
+
+function getAllLocations() {
+  const set = new Set();
+  for (const obj of Object.values(dictionary)) {
+    const loc = (obj?.location ?? "").trim();
+    if (loc) set.add(loc);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function closeLocationDropdown() {
+  locationDropdown.style.display = "none";
+  locationDropdown.innerHTML = "";
+  locActiveIndex = -1;
+  locMatches = [];
+}
+
+function openLocationDropdown(matches) {
+  locMatches = matches;
+  locActiveIndex = -1;
+
+  locationDropdown.innerHTML = "";
+
+  if (matches.length === 0) {
+    const div = document.createElement("div");
+    div.className = "loc-empty";
+    div.textContent = "No matching saved locations. Press Enter to create this location.";
+    locationDropdown.appendChild(div);
+  } else {
+    matches.slice(0, 12).forEach((loc) => {
+      const opt = document.createElement("div");
+      opt.className = "loc-option";
+      opt.textContent = loc;
+
+      opt.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        locationInput.value = loc;
+        closeLocationDropdown();
+        locationInput.focus();
+      });
+
+      locationDropdown.appendChild(opt);
+    });
+  }
+
+  locationDropdown.style.display = "block";
+}
+
+function refreshLocationDropdown() {
+  const q = locationInput.value.trim().toLowerCase();
+  const all = getAllLocations();
+
+  if (!q) {
+    openLocationDropdown(all.slice(0, 12));
+    return;
+  }
+
+  const matches = all.filter(loc => loc.toLowerCase().includes(q));
+  openLocationDropdown(matches);
+}
+
+function setActiveOption(index) {
+  const options = locationDropdown.querySelectorAll(".loc-option");
+  options.forEach(o => o.classList.remove("active"));
+  if (index >= 0 && index < options.length) {
+    options[index].classList.add("active");
+    options[index].scrollIntoView({ block: "nearest" });
+  }
+}
+
+function populateLocationFilter() {
+  const current = locationFilter.value; // preserve selection if possible
+  locationFilter.innerHTML = `<option value="">Select Location</option>`;
+
+  const locations = getAllLocations(); // you already have this from autocomplete
+  for (const loc of locations) {
+    const opt = document.createElement("option");
+    opt.value = loc;
+    opt.textContent = loc;
+    locationFilter.appendChild(opt);
+  }
+
+  // restore selection if it still exists
+  if (current && locations.includes(current)) locationFilter.value = current;
+}
+
+// ---------------------------------------------------------------
+
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, ch => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+      }[ch]));
+    }
+
+    function saveToLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dictionary));
+    }
+
+    function loadFromLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") dictionary = parsed;
+      } catch (e) {
+        console.warn("Failed to load saved dictionary:", e);
+      }
+    }
+
+    function addEntry() {
+      const word = wordInput.value.trim();
+      const definition = definitionInput.value.trim();
+      const location = locationInput.value.trim();
+
+      if (!word || !definition) return;
+
+      dictionary[word] = { definition, location };
+
+      wordInput.value = "";
+      definitionInput.value = "";
+      locationInput.value = "";
+
+      saveToLocal();
+      populateLocationFilter();
+      render();
+    }
+
+    function deleteEntry(word) {
+      if (!confirm(`Delete "${word}"?`)) return;
+      delete dictionary[word];
+      saveToLocal();
+      render();
+    }
+
+    function editEntry(word) {
+        const current = dictionary[word];
+        if (!current) return;
+
+        // Elements (assumes you added the modal HTML)
+        const overlay = document.getElementById("editOverlay");
+        const modal = document.getElementById("editModal");
+
+        const editWord = document.getElementById("editWord");
+        const editDefinition = document.getElementById("editDefinition");
+        const editLocation = document.getElementById("editLocation");
+
+        const saveBtn = document.getElementById("editSaveBtn");
+        const cancelBtn = document.getElementById("editCancelBtn");
+
+    // Snapshot original values
+        const original = {
+            word,
+            definition: current.definition ?? "",
+            location: current.location ?? ""
+        };
+
+    // Fill fields
+    editWord.value = original.word;
+    editDefinition.value = original.definition;
+    editLocation.value = original.location;
+
+    // Track dirty state
+    const isDirty = () =>
+        editWord.value.trim() !== original.word ||
+        editDefinition.value.trim() !== original.definition ||
+        editLocation.value.trim() !== original.location;
+
+    function closeModal() {
+        overlay.style.display = "none";
+        detachListeners();
+    }
+
+    function confirmDiscardIfDirty() {
+        if (!isDirty()) return true;
+        return confirm("Discard your changes?");
+    }
+
+    function onOverlayClick(e) {
+        // Click outside modal = attempt cancel with confirmation
+        if (e.target === overlay) {
+        if (confirmDiscardIfDirty()) closeModal();
+        }
+    }
+
+    function onEsc(e) {
+        if (e.key === "Escape") {
+        if (confirmDiscardIfDirty()) closeModal();
+        }
+    }
+
+    function onCancel() {
+        if (confirmDiscardIfDirty()) closeModal();
+    }
+
+    function onSave() {
+        const newWord = editWord.value.trim();
+        const newDef = editDefinition.value.trim();
+        const newLoc = editLocation.value.trim();
+
+        if (!newWord) {
+        alert("Word cannot be empty.");
+        editWord.focus();
+        return;
+        }
+        if (!newDef) {
+        alert("Definition cannot be empty.");
+        editDefinition.focus();
+        return;
+        }
+
+        // If renaming to a different word that already exists, confirm overwrite
+        if (newWord !== original.word && dictionary[newWord]) {
+        const ok = confirm(`"${newWord}" already exists. Overwrite it?`);
+        if (!ok) return;
+        }
+
+        // Apply changes
+        if (newWord !== original.word) delete dictionary[original.word];
+        dictionary[newWord] = { definition: newDef, location: newLoc };
+        
+
+
+        saveToLocal();
+        render();
+        closeModal();
+    }
+
+    function attachListeners() {
+        overlay.addEventListener("click", onOverlayClick);
+        document.addEventListener("keydown", onEsc);
+        cancelBtn.addEventListener("click", onCancel);
+        saveBtn.addEventListener("click", onSave);
+    }
+
+    function detachListeners() {
+        overlay.removeEventListener("click", onOverlayClick);
+        document.removeEventListener("keydown", onEsc);
+        cancelBtn.removeEventListener("click", onCancel);
+        saveBtn.removeEventListener("click", onSave);
+    }
+
+    // Open modal
+    overlay.style.display = "flex";
+    attachListeners();
+
+    // Focus first field
+    setTimeout(() => editWord.focus(), 0);
+    }
+
+
+
+    function exportJSON() {
+        // Export what is currently on screen = current filtered entries
+        const entries = getFilteredEntries(); // returns [ [word, obj], ... ]
+
+        const exportObj = {};
+        for (const [word, obj] of entries) {
+            exportObj[word] = {
+            definition: String(obj?.definition ?? ""),
+            location: String(obj?.location ?? "")
+            };
+        }
+
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        // Name file differently if there is an active search query
+        const q = searchInput.value.trim();
+        const safeQ = q ? q.replace(/[^\w\-]+/g, "_").slice(0, 40) : "";
+        const filename = q ? `finance_dictionary_filtered_${safeQ}.json` : "finance_dictionary_all_visible.json";
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
+    }
+
+
+    function importJSONFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!parsed || typeof parsed !== "object") throw new Error("Invalid JSON structure.");
+
+          // Normalize legacy shapes
+          const normalized = {};
+          for (const [w, v] of Object.entries(parsed)) {
+            if (v && typeof v === "object") {
+              normalized[w] = {
+                definition: String(v.definition ?? ""),
+                location: String(v.location ?? "")
+              };
+            } else {
+              normalized[w] = { definition: String(v ?? ""), location: "" };
+            }
+          }
+
+          dictionary = normalized;
+          populateLocationFilter();
+          saveToLocal();
+          render();
+        } catch (e) {
+          alert("Import failed: " + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function escapeRegExp(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function highlight(text, query) {
+      const safeText = escapeHtml(text);
+      const q = (query || "").trim();
+      if (!q) return safeText;
+
+      const re = new RegExp(escapeRegExp(q), "ig");
+      return safeText.replace(re, (m) => `<mark>${escapeHtml(m)}</mark>`);
+    }
+
+    function getFilteredEntries() {
+        const q = searchInput.value.trim().toLowerCase();
+        const selectedLoc = (locationFilter.value || "").trim();
+
+        const entries = Object.entries(dictionary);
+
+        return entries.filter(([word, obj]) => {
+            const def = (obj?.definition ?? "");
+            const loc = (obj?.location ?? "");
+
+            const matchesLocation = !selectedLoc || loc.trim() === selectedLoc;
+
+            if (!q) {
+            return matchesLocation; // location-only filter
+            }
+
+            const matchesText =
+            word.toLowerCase().includes(q) ||
+            def.toLowerCase().includes(q);
+
+            return matchesLocation && matchesText;
+        });
+}
+
+
+    function render() {
+      entriesEl.innerHTML = "";
+
+      const q = searchInput.value.trim();
+      const entries = getFilteredEntries()
+        .sort((a, b) => a[0].localeCompare(b[0]));
+
+      if (entries.length === 0) {
+        entriesEl.textContent = "No entries to show.";
+        return;
+      }
+
+      for (const [word, obj] of entries) {
+        const def = obj?.definition ?? "";
+        const loc = obj?.location ?? "";
+
+        const entry = document.createElement("div");
+        entry.className = "entry";
+
+        entry.innerHTML = `
+            <div class="mainline">
+                <span class="word">${highlight(word, q)}</span>: ${highlight(def, q)}
+            </div>
+
+            <div class="right">
+                <div class="loc">
+                <span class="label">Location:</span>
+                ${loc ? escapeHtml(loc) : "<span style='opacity:0.6'>(none)</span>"}
+                </div>
+
+                <button class="icon-btn edit-btn" type="button">Edit</button>
+                <button class="icon-btn delete-btn" type="button">Delete</button>
+            </div>
+            `;
+
+
+        entry.querySelector(".edit-btn").addEventListener("click", () => editEntry(word));
+        entry.querySelector(".delete-btn").addEventListener("click", () => deleteEntry(word));
+
+        entriesEl.appendChild(entry);
+      }
+    }
+
+    // Events
+    addBtn.addEventListener("click", addEntry);
+
+    // Enter adds (in word or location); Shift+Enter for new lines in definition
+    wordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addEntry();
+    });
+    locationInput.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+            if (locationDropdown.style.display !== "block") refreshLocationDropdown();
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (opts.length === 0) return;
+            e.preventDefault();
+            locActiveIndex = Math.min(locActiveIndex + 1, opts.length - 1);
+            setActiveOption(locActiveIndex);
+            return;
+        }
+
+        if (e.key === "ArrowUp") {
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (opts.length === 0) return;
+            e.preventDefault();
+            locActiveIndex = Math.max(locActiveIndex - 1, 0);
+            setActiveOption(locActiveIndex);
+            return;
+        }
+
+        if (e.key === "Enter") {
+            // If a dropdown option is active, choose it.
+            const opts = locationDropdown.querySelectorAll(".loc-option");
+            if (locationDropdown.style.display === "block" && opts.length > 0 && locActiveIndex >= 0) {
+            e.preventDefault();
+            locationInput.value = locMatches[locActiveIndex];
+            closeLocationDropdown();
+            addEntry(); // still adds entry on Enter
+            return;
+            }
+
+            // Otherwise, Enter creates this new location implicitly by saving it on the entry
+            // and adds the entry.
+            e.preventDefault();
+            closeLocationDropdown();
+            addEntry();
+            return;
+        }
+
+        if (e.key === "Escape") {
+            closeLocationDropdown();
+        }
+        });
+
+    definitionInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        addEntry();
+      }
+    });
+    searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            render();
+        }
+    });
+    clearFiltersBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        locationFilter.value = "";
+        render();
+    });
+
+
+
+    ssearchBtn.addEventListener("click", render);
+
+    exportBtn.addEventListener("click", exportJSON);
+    importBtn.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (file) importJSONFile(file);
+      importFile.value = "";
+    });
+
+    locationInput.addEventListener("input", () => {
+        const q = locationInput.value.trim();
+        if (q.length === 0) {
+            closeLocationDropdown();   // don’t show anything if empty
+            return;
+        }
+        refreshLocationDropdown();   // show matches once user types
+        });
+
+    locationInput.addEventListener("focus", () => {
+    // Do nothing on focus — dropdown should not appear just by clicking in.
+    // (You can still type and the input handler will show it.)
+    });
+
+
+    // Close when clicking elsewhere
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".loc-autocomplete")) closeLocationDropdown();
+    });
+
+
+
+    // Init
+    loadFromLocal();
+    populateLocationFilter();
+    render();
+  </script>
+
+  <!-- Edit Modal -->
+    <div id="editOverlay" style="display:none;">
+    <div id="editModal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+        <h2 id="editTitle" style="margin:0 0 10px 0;">Edit Entry</h2>
+
+        <label for="editWord">Word</label>
+        <input id="editWord" type="text" />
+
+        <label for="editDefinition">Definition</label>
+        <textarea id="editDefinition"></textarea>
+
+        <label for="editLocation">Link to webpage or keywords for location</label>
+        <input id="editLocation" type="text" />
+
+        <div class="modal-actions">
+        <button id="editSaveBtn" type="button">Save</button>
+        <button id="editCancelBtn" type="button">Cancel</button>
+        </div>
+
+        <div class="note" style="margin-top:8px;">Click outside to cancel (you’ll be asked to discard changes).</div>
+    </div>
+    </div>
+
+</body>
+</html>
