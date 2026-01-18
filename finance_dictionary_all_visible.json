@@ -26,5 +26,21 @@
   "Modularization": {
     "definition": "Breaking down complex systems into smaller, independent, changeable units.",
     "location": "Market Design paper by Georg Rilinger"
+  },
+  "Bull Market": {
+    "definition": "Positive investor sensations",
+    "location": "General"
+  },
+  "Mid Cap Fund": {
+    "definition": "A pooled investment vehicle (mutual fund or ETF) that explicitly invests in mid-cap company stocks or companies with market capitalizations from $2B - $10B.",
+    "location": "Fixed Income"
+  },
+  "Mid Cap": {
+    "definition": "Companies with a capitalization (or market cap) or market value between $2B and $10B.",
+    "location": "Fixed Income"
+  },
+  "Large Cap Fund": {
+    "definition": "A company with market capitalization value of over $10B. (generally less riskier compared to small cap funds)",
+    "location": "Fixed Income"
   }
 }
